@@ -1,7 +1,8 @@
 package config
 
 import (
-	"gorm.io/driver/mysql"
+	"fmt"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"log"
 	"os"
@@ -13,16 +14,26 @@ var (
 
 func InitDb() {
 	var err error
-	uri1 := os.Getenv("DATABASE_URI")
+	dsn := fmt.Sprintf("host=%v user=%v password=%v dbname=%v port=%v sslmode=enable",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_USERNAME"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_DATABASE"),
+		os.Getenv("DB_PORT"),
+	)
 
-	if uri1 == "" {
-		uri1 = "root:mypass@tcp(127.0.0.1:3306)/rewards_cwa?charset=utf8mb4&parseTime=True&loc=Local"
-		//uri = "root:mypass@tcp(host.docker.internal:3306)/rewards_cwa?charset=utf8mb4&parseTime=True&loc=Local"
-	}
+	host, user, password, dbname, port := "127.0.0.1", "postgres", "mysecretpassword", "postgresDB", 5456
+	dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%v sslmode=disable",
+		host, user, password, dbname, port,
+	)
 
-	DBClient, err = gorm.Open(mysql.Open(uri1), &gorm.Config{})
+	DBClient, err = gorm.Open(
+		postgres.Open(dsn),
+		&gorm.Config{},
+	)
 	if err != nil {
 		log.Println("Error Connecting to Database")
 		log.Fatal(err)
 	}
+	return
 }
