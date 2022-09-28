@@ -22,11 +22,6 @@ func InitDb() {
 		os.Getenv("DB_PORT"),
 	)
 
-	host, user, password, dbname, port := "127.0.0.1", "postgres", "mysecretpassword", "postgresDB", 5456
-	dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%v sslmode=disable",
-		host, user, password, dbname, port,
-	)
-
 	DBClient, err = gorm.Open(
 		postgres.Open(dsn),
 		&gorm.Config{},
