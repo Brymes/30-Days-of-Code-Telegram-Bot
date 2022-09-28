@@ -2,6 +2,7 @@ package bot
 
 import (
 	"30DoC-Telegram-Bot/config"
+	"30DoC-Telegram-Bot/models"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
 	"sync"
@@ -15,6 +16,8 @@ var (
 func BotController() {
 
 	config.BotInstance.Debug = true
+	models.InitModels()
+	ChatIDSteps = models.LoadPreviousSteps()
 
 	log.Printf("Authorized on account %s", config.BotInstance.Self.UserName)
 
@@ -24,21 +27,35 @@ func BotController() {
 	updates := config.BotInstance.GetUpdatesChan(botUpdateConfig)
 
 	for update := range updates {
-		// Create a new MessageConfig. We don't have text yet,
-		// so we leave it empty.
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+		//Handle Bot Restart and Stop
+		if update.CallbackQuery != nil {
+			go SelectTrackHandler(update)
+			continue
+		} else if update.Message == nil {
+			EditChatIDSteps(update.MyChatMember.Chat.ID, 0)
+			continue
+		} else if update.Message.Text == "/start" {
+			go HelpHandler(update)
+			continue
+		}
 
 		if update.Message.IsCommand() {
 			// Extract the command from the Message.
 			switch update.Message.Command() {
 			case "help":
-				HelpHandler(update)
+				go HelpHandler(update)
+				continue
 			case "tracks":
-				TracksHandler(update)
+				go TracksHandler(update)
+				continue
 			case "start":
+				go HelpHandler(update)
+				continue
+			case "register":
 				StartProcess(update)
 			default:
-				HelpHandler(update)
+				go HelpHandler(update)
+				continue
 			}
 		} else if update.Message != nil {
 			ChatIDMutex.Lock()
@@ -48,25 +65,25 @@ func BotController() {
 			switch chatID {
 
 			case 0:
-				HelpHandler(update)
+				go HelpHandler(update)
+				continue
 			case 1:
-				EmailHandler(update)
+				go EmailHandler(update)
+				continue
 			case 2:
-				FullNameHandler(update)
+				go FullNameHandler(update)
+				continue
 			case 3:
-				PhoneHandler(update)
+				go PhoneHandler(update)
+				continue
 			case 4:
-				SchoolHandler(update)
+				go SchoolHandler(update)
+				continue
 			case 5:
-				SelectTrackHandler(update)
+				go SelectTrackHandler(update)
+				continue
 
 			}
-		} else if update.CallbackQuery != nil {
-			SelectTrackHandler(update)
-		}
-
-		if _, err := config.BotInstance.Send(msg); err != nil {
-			log.Panic(err)
 		}
 	}
 }
