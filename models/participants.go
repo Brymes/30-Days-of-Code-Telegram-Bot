@@ -2,8 +2,36 @@ package models
 
 import (
 	"30DoC-Telegram-Bot/config"
+	"errors"
+	"github.com/jackc/pgconn"
 	"gorm.io/gorm"
+	"log"
 )
+
+func InitModels() {
+	err := config.DBClient.AutoMigrate(&Participant{})
+	if err != nil {
+		log.Fatalln(err)
+	}
+}
+
+func LoadPreviousSteps() map[int64]int {
+	var (
+		participants []Participant
+	)
+	result := config.DBClient.Model(&Participant{}).Where("step != ?", 0).Find(&participants)
+
+	if result.Error != nil {
+		log.Fatal("Cannot Load Previous steps")
+	}
+
+	chatIdSteps := make(map[int64]int, len(participants))
+	for _, elem := range participants {
+		chatIdSteps[elem.ChatID] = elem.Step
+	}
+
+	return chatIdSteps
+}
 
 type Participant struct {
 	ChatID   int64  `gorm:"column:chat_id;unique"`
@@ -12,18 +40,12 @@ type Participant struct {
 	Phone    string `gorm:"column:phone"`
 	School   string `gorm:"column:school"`
 	Track    string `gorm:"column:track"`
-}
-
-func (participant Participant) GetChatID() {
-
+	Step     int    `gorm:"column:step"`
 }
 
 func (participant Participant) SaveEmail() string {
 	result := config.DBClient.Model(&Participant{}).Create(&participant)
-	if result.Error != nil {
-		return "There happens to be a problem Do contact support and consider joining any of the track links at /tracks"
-	}
-	return ""
+	return handleDBErr(result)
 }
 
 func (participant Participant) SaveName() string {
@@ -47,7 +69,17 @@ func (participant Participant) SaveTrack() string {
 }
 
 func handleDBErr(result *gorm.DB) string {
-	if result.Error != nil {
+	var perr *pgconn.PgError
+	errors.As(result.Error, &perr)
+
+	if perr != nil {
+		switch perr.Code {
+		case "23505":
+			return "This User has already registered"
+		default:
+			return "There happens to be a problem Do contact support and resend last message"
+		}
+	} else if result.Error != nil {
 		return "There happens to be a problem Do contact support and resend last message"
 	}
 	return ""
